@@ -1,145 +1,277 @@
-import streamlit as st
-from collections import defaultdict
+# Poker Settlement App – Improved Streamlit Version
 
-st.title("🃏 Poker Settlement")
+```python
+import streamlit as st
+import pandas as pd
+
+st.set_page_config(page_title="Poker Settlement", layout="wide")
+
+st.markdown(
+    """
+    <style>
+    .main {
+        background-color: #0e1117;
+    }
+
+    .stTextInput input {
+        border-radius: 12px;
+        padding: 10px;
+    }
+
+    .stNumberInput input {
+        border-radius: 12px;
+    }
+
+    .player-card {
+        background-color: #1c1f26;
+        padding: 15px;
+        border-radius: 16px;
+        margin-bottom: 12px;
+        border: 1px solid #333;
+    }
+
+    .result-box {
+        background-color: #1a2e1a;
+        padding: 15px;
+        border-radius: 15px;
+        margin-top: 10px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.title("🃏 Poker Settlement App")
+st.write("Easy Hinglish poker हिसाब system")
+
+# -----------------------------
+# Number of Players
+# -----------------------------
 
 num_players = st.number_input(
-    "Number of Players",
+    "Kitne players hai?",
     min_value=2,
-    step=1
+    max_value=20,
+    step=1,
 )
 
 players = []
-
-for i in range(num_players):
-    name = st.text_input(f"Player {i+1} Name", key=f"name{i}")
-    if name:
-        players.append(name)
-
-boot = st.number_input(
-    "Boot Amount",
-    min_value=0,
-    value=20
-)
+boot_amounts = {}
+final_amounts = {}
 
 st.divider()
 
-transactions = []
+# -----------------------------
+# Player Details
+# -----------------------------
 
-if len(players) >= 2:
+st.subheader("👥 Players Details")
 
-    st.subheader("Borrow Transactions")
+for i in range(num_players):
+    st.markdown(f"### Player {i+1}")
 
-    t_count = st.number_input(
-        "Number of Transactions",
+    col1, col2 = st.columns(2)
+
+    with col1:
+        name = st.text_input(
+            f"Player {i+1} ka naam",
+            key=f"name_{i}",
+            placeholder="Naam likho...",
+        )
+
+    with col2:
+        boot = st.number_input(
+            f"{name if name else 'Player'} ne bank se kitna boot liya?",
+            min_value=0,
+            step=10,
+            key=f"boot_{i}",
+        )
+
+    if name:
+        players.append(name)
+        boot_amounts[name] = boot
+
+st.divider()
+
+# -----------------------------
+# Final Amounts
+# -----------------------------
+
+st.subheader("💰 Match Khatam Hone Ke Baad")
+
+st.write("Har player ke paas abhi total kitna amount hai?")
+
+for player in players:
+    final_amounts[player] = st.number_input(
+        f"{player} ke paas abhi kitna amount hai?",
         min_value=0,
-        step=1
+        step=10,
+        key=f"final_{player}",
     )
 
-    for i in range(t_count):
+st.divider()
 
-        col1, col2, col3 = st.columns(3)
+# -----------------------------
+# Udhar Section
+# -----------------------------
 
-        with col1:
-            lender = st.selectbox(
-                f"Lender {i}",
-                players,
-                key=f"lend{i}"
-            )
+st.subheader("🤝 Udhar Entries")
 
-        with col2:
-            borrower = st.selectbox(
-                f"Borrower {i}",
-                players,
-                key=f"borrow{i}"
-            )
+num_loans = st.number_input(
+    "Kitne udhar transactions hue?",
+    min_value=0,
+    max_value=50,
+    step=1,
+)
 
-        with col3:
-            amount = st.number_input(
-                f"Amount {i}",
-                min_value=0,
-                key=f"amt{i}"
-            )
+loans = []
 
-        transactions.append(
-            (lender, borrower, amount)
+for i in range(num_loans):
+    st.markdown(f"### Udhar {i+1}")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        giver = st.selectbox(
+            "Kisne paise diye?",
+            players,
+            key=f"giver_{i}",
         )
+
+    with col2:
+        receiver = st.selectbox(
+            "Kisne udhar liya?",
+            players,
+            key=f"receiver_{i}",
+        )
+
+    with col3:
+        amount = st.number_input(
+            "Kitna amount?",
+            min_value=0,
+            step=10,
+            key=f"amount_{i}",
+        )
+
+    loans.append((giver, receiver, amount))
+
+st.divider()
+
+# -----------------------------
+# Calculation
+# -----------------------------
+
+if st.button("📊 Final Hisaab Nikalo"):
+
+    settlement = {}
+
+    for player in players:
+        settlement[player] = final_amounts[player] - boot_amounts[player]
+
+    # Udhar Adjustments
+    for giver, receiver, amount in loans:
+        settlement[giver] += amount
+        settlement[receiver] -= amount
+
+    st.subheader("📈 Profit / Loss")
+
+    for player, value in settlement.items():
+
+        if value > 0:
+            st.success(f"✅ {player} ko PROFIT hua hai ₹{value}")
+
+        elif value < 0:
+            st.error(f"❌ {player} LOSS me hai ₹{abs(value)}")
+
+        else:
+            st.info(f"➖ {player} ka no profit no loss")
 
     st.divider()
 
-    st.subheader("Final Chips")
+    # -----------------------------
+    # Settlement Logic
+    # -----------------------------
 
-    final_chips = {}
+    creditors = []
+    debtors = []
 
-    for player in players:
+    for player, amount in settlement.items():
+        if amount > 0:
+            creditors.append([player, amount])
+        elif amount < 0:
+            debtors.append([player, -amount])
 
-        chips = st.number_input(
-            f"{player} Final Chips",
-            min_value=0,
-            key=f"chips{player}"
+    transactions = []
+
+    i = 0
+    j = 0
+
+    while i < len(debtors) and j < len(creditors):
+
+        debtor_name, debtor_amt = debtors[i]
+        creditor_name, creditor_amt = creditors[j]
+
+        pay_amt = min(debtor_amt, creditor_amt)
+
+        transactions.append(
+            f"💸 {debtor_name} ko {creditor_name} ko ₹{pay_amt} dene hai"
         )
 
-        final_chips[player] = chips
+        debtors[i][1] -= pay_amt
+        creditors[j][1] -= pay_amt
 
-    if st.button("Calculate"):
+        if debtors[i][1] == 0:
+            i += 1
 
-        loans_given = defaultdict(int)
-        loans_taken = defaultdict(int)
+        if creditors[j][1] == 0:
+            j += 1
 
-        for lender, borrower, amount in transactions:
+    st.subheader("🧾 Final Settlement")
 
-            loans_given[lender] += amount
-            loans_taken[borrower] += amount
+    if transactions:
+        for t in transactions:
+            st.markdown(f"### {t}")
+    else:
+        st.success("Sabka hisaab barabar hai 😄")
 
-        results = {}
+    st.divider()
 
-        st.header("Results")
+    # -----------------------------
+    # Summary Table
+    # -----------------------------
 
-        for player in players:
+    summary_data = []
 
-            net = (
-                final_chips[player]
-                + loans_given[player]
-                - loans_taken[player]
-                - boot
-            )
+    for player in players:
+        summary_data.append(
+            {
+                "Player": player,
+                "Boot Liya": boot_amounts[player],
+                "Final Amount": final_amounts[player],
+                "Net Profit/Loss": settlement[player],
+            }
+        )
 
-            results[player] = net
+    df = pd.DataFrame(summary_data)
 
-            st.write(f"{player}: {net}")
+    st.subheader("📋 Full Summary")
+    st.dataframe(df, use_container_width=True)
+```
 
-        creditors = []
-        debtors = []
+# Important Commands
 
-        for p, amt in results.items():
+## Run Locally
 
-            if amt > 0:
-                creditors.append([p, amt])
+```bash
+python3 -m streamlit run app.py
+```
 
-            elif amt < 0:
-                debtors.append([p, -amt])
+## Update GitHub
 
-        st.header("Settlement")
+```bash
+git add .
+git commit -m "updated poker app"
+git push
+```
 
-        i = 0
-        j = 0
-
-        while i < len(debtors) and j < len(creditors):
-
-            d_name, d_amt = debtors[i]
-            c_name, c_amt = creditors[j]
-
-            settlement = min(d_amt, c_amt)
-
-            st.write(
-                f"{d_name} pays {c_name} → {settlement}"
-            )
-
-            debtors[i][1] -= settlement
-            creditors[j][1] -= settlement
-
-            if debtors[i][1] == 0:
-                i += 1
-
-            if creditors[j][1] == 0:
-                j += 1
+Streamlit automatically update ho jayega.
